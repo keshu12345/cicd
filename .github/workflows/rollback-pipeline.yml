@@ -20,8 +20,28 @@ jobs:
       - name: Check health
         run: |
           sleep 5
-          curl -X GET http://localhost:8080/health
+          curl -X GET 'http://localhost:8080/health'
           if [ $? -ne 0 ]; then
             echo "Application is unhealthy"
+            ./rollback.sh
+          fi
+
+      - name: Check version
+        run: |
+          curl -X GET 'http://localhost:8080/version'
+
+      - name: Toggle health to unhealthy
+        run: |
+          curl -X GET 'http://localhost:8080/toggle-health?state=unhealthy'
+
+      - name: Toggle health to healthy
+        run: |
+          curl -X GET 'http://localhost:8080/toggle-health?state=healthy'
+
+      - name: Rollback if unhealthy
+        run: |
+          curl -X GET 'http://localhost:8080/health'
+          if [ $? -ne 0 ]; then
+            echo "Application is unhealthy, rolling back"
             ./rollback.sh
           fi
