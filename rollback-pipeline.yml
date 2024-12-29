@@ -1,0 +1,42 @@
+name: Rollback Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build and deploy
+        run: |
+          # Build and deploy the application
+          go build main.go
+          docker build -t my-app .
+          docker push my-app:latest
+          kubectl apply -f deployment.yaml
+
+      - name: Monitor health and logs
+        run: |
+          # Monitor the application's health and logs
+          sleep 60
+          curl -s -o /dev/null -w "%{http_code}" http://my-app:8080/health
+          if [ $? -ne 200 ]; then
+            echo "Application is unhealthy, triggering rollback"
+            # Trigger rollback
+            kubectl rollout undo deployment my-app
+          fi
+
+      - name: Rollback if deployment fails
+        run: |
+          # Check if the deployment was successful
+          kubectl get deployments -o jsonpath='{.items[0].status.replicas}' | grep -q "3"
+          if [ $? -ne 0 ]; then
+            echo "Deployment failed, triggering rollback"
+            # Trigger rollback
+            kubectl rollout undo deployment my-app
+          fi
